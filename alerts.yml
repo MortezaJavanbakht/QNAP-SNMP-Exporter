@@ -1,0 +1,227 @@
+groups:
+
+- name: qnap_alerts
+  rules:
+
+  # --- System-level Alerts ---
+  - alert: QNAPSystemHighCpuUsage
+    expr: qnap_cpu_usage_percent > 85
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High CPU Usage on QNAP device {{ $labels.instance }}"
+      description: "CPU usage on {{ $labels.instance }} has been above 85% for 15 minutes. Current value: {{ $value | printf \"%.2f\" }}%"
+
+  - alert: QNAPSystemHighMemoryUsage
+    expr: (qnap_system_memory_total_kbytes - qnap_system_memory_free_kbytes) / qnap_system_memory_total_kbytes * 100 > 90
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High Memory Usage on QNAP device {{ $labels.instance }}"
+      description: "Memory usage on {{ $labels.instance }} has been above 90% for 15 minutes. Please check the running services."
+
+  - alert: QNAPSystemHighTemperature
+    expr: qnap_system_temperature_celsius > 60
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High System Temperature on QNAP device {{ $labels.instance }}"
+      description: "System temperature on {{ $labels.instance }} has exceeded 60°C for 10 minutes. Current value: {{ $value }}°C."
+
+  - alert: QNAPCpuHighTemperature
+    expr: qnap_cpu_temperature_celsius > 75
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High CPU Temperature on QNAP device {{ $labels.instance }}"
+      description: "CPU temperature on {{ $labels.instance }} has exceeded 75°C for 10 minutes. Current value: {{ $value }}°C. This could damage the hardware."
+
+  - alert: QNAPDeviceUnreachable
+    expr: max_over_time(up{job="qnap"}[10m]) == 0
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "QNAP Device Unreachable: {{ $labels.instance }}"
+      description: "The snmp_exporter has been unable to scrape the QNAP device {{ $labels.instance }} for 5 minutes."
+
+  # --- Fan Alerts ---
+  - alert: QNAPSystemFanFailure
+    expr: qnap_sys_fan_status != 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "System Fan Failure on QNAP device {{ $labels.instance }}"
+      description: "Fan '{{ $labels.fanName }}' (index: {{ $labels.fanIndex }}) on device {{ $labels.instance }} has failed. Please investigate immediately."
+
+  # --- Hard Disk Alerts ---
+  - alert: QNAPDiskHighTemperature
+    expr: qnap_hd_temperature_celsius > 50
+    for: 20m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High Hard Disk Temperature on QNAP {{ $labels.instance }}"
+      description: "Hard disk '{{ $labels.hdName }}' (model: {{ $labels.hdModel }}) on device {{ $labels.instance }} has exceeded 50°C for 20 minutes. Current temperature: {{ $value }}°C."
+
+  - alert: QNAPDiskStatusError
+    expr: qnap_hd_status != 0
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Hard Disk Status Error on QNAP {{ $labels.instance }}"
+      description: "Hard disk '{{ $labels.hdName }}' on device {{ $labels.instance }} is in an error state (status code: {{ $value }}). Possible values: 0=Ready, -5=noDisk, -6=Invalid, -9=rwError."
+
+  - alert: QNAPDiskSmartStatusWarning
+    expr: qnap_hd_smart_status == 1
+    for: 1h
+    labels:
+      severity: warning
+    annotations:
+      summary: "Hard Disk S.M.A.R.T. Warning on QNAP {{ $labels.instance }}"
+      description: "S.M.A.R.T. status for hard disk '{{ $labels.hdName }}' on device {{ $labels.instance }} is 'Warning'. It is recommended to check the disk health."
+
+  - alert: QNAPDiskSmartStatusError
+    expr: qnap_hd_smart_status == -1 or qnap_hd_smart_status == 2
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Hard Disk S.M.A.R.T. Error on QNAP {{ $labels.instance }}"
+      description: "S.M.A.R.T. status for hard disk '{{ $labels.hdName }}' on device {{ $labels.instance }} is critical (Error/Abnormal). Disk failure is likely."
+
+  # --- Volume and Storage Pool Alerts ---
+  - alert: QNAPVolumeLowSpace
+    expr: (qnap_volume_free_size_kbytes / qnap_volume_total_size_kbytes) * 100 < 15
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Low Volume Space on QNAP device {{ $labels.instance }}"
+      description: "Free space on volume with filesystem '{{ $labels.volumeFilesystem }}' on device {{ $labels.instance }} is below 15%."
+
+  - alert: QNAPVolumeVeryLowSpace
+    expr: (qnap_volume_free_size_kbytes / qnap_volume_total_size_kbytes) * 100 < 5
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Very Low Volume Space on QNAP device {{ $labels.instance }}"
+      description: "Free space on volume with filesystem '{{ $labels.volumeFilesystem }}' on device {{ $labels.instance }} is below 5% and will be full soon."
+
+  - alert: QNAPVolumeStatusNotReady
+    expr: qnap_volume_status_alt{qnap_volume_status_alt!="Ready"}
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Volume Status Not Ready on QNAP {{ $labels.instance }}"
+      description: "The status of volume '{{ $labels.volumeName }}' on device {{ $labels.instance }} is not 'Ready'. Please check its status in the Storage Manager."
+
+  - alert: QNAPStoragePoolLowSpace
+    expr: (qnap_pool_free_size_bytes / qnap_pool_capacity_bytes) * 100 < 15
+    for: 30m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Low Storage Pool Space on QNAP device {{ $labels.instance }}"
+      description: "Free space on storage pool with index {{ $labels.poolIndex }} on device {{ $labels.instance }} is below 15%."
+
+  - alert: QNAPStoragePoolStatusNotReady
+    expr: qnap_pool_status != 0 # Note: A value of 0 typically means 'Ready'. Confirm this for your device.
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Storage Pool Status Not Ready on QNAP {{ $labels.instance }}"
+      description: "The status of storage pool with index {{ $labels.poolIndex }} on device {{ $labels.instance }} is not 'Ready'."
+
+
+  # --- RAID Alerts ---
+  - alert: QNAPRaidDegraded
+    expr: qnap_raid_state{raidState!="Ready|Synchronizing"}
+    for: 10m
+    labels:
+      severity: critical
+    annotations:
+      summary: "RAID Array Degraded or Rebuilding on QNAP {{ $labels.instance }}"
+      description: "The RAID array with level '{{ $labels.raidLevel }}' on device {{ $labels.instance }} is in state '{{ $labels.raidState }}'. This could mean a disk has failed or the array is rebuilding."
+
+
+  - alert: QNAPLUNUsageCritical
+    expr: qnap_lun_used_percent > 95
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: "LUN usage is critical for {{ $labels.lunName }}"
+      description: "The used space on LUN '{{ $labels.lunName }}' has reached {{ $value | printf \"%.2f\" }}%, which is above the critical threshold (90%)."
+
+  - alert: QNAPLUNUsageWarning
+    expr: qnap_lun_used_percent > 85
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High LUN usage for {{ $labels.lunName }}"
+      description: "The used space on LUN '{{ $labels.lunName }}' has reached {{ $value | printf \"%.2f\" }}%, which is above the warning threshold (80%)."
+
+  - alert: QNAPLUNStatusNotEnabled
+    expr: qnap_lun_status{qnap_lun_status!="Enabled"} == 1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "LUN '{{ $labels.lunName }}' is not in a Ready state"
+      description: "The LUN '{{ $labels.lunName }}' on instance {{ $labels.instance }} is reporting a status of '{{ $labels.qnap_lun_status }}' instead of 'Ready'."
+
+  - alert: QNAPLUNUnmapped
+    expr: qnap_lun_is_map == 0  # 0:unmapped, 1:mapped
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "LUN '{{ $labels.lunName }}' is unmapped"
+      description: "The LUN '{{ $labels.lunName }}' is not mapped to any host, which may be unintended."
+
+  - alert: QNAPIscsiTargetDisconnected
+    expr: qnap_iscsi_status == 0  # 0=Disconnected, 1=Connected
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "iSCSI target '{{ $labels.targetName }}' is disconnected"
+      description: "The iSCSI target '{{ $labels.targetName }}' on instance {{ $labels.instance }} has lost its connection."
+
+  - alert: QNAPIscsiServiceDown
+    expr: qnap_iscsi_service == 0  # 0:no, 1:yes
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "QNAP iSCSI service is down"
+      description: "The iSCSI service on QNAP device {{ $labels.instance }} is down. This will impact LUN accessibility."
+
+  - alert: QNAPDeviceRebooted
+    expr: qnap_hr_system_uptime < 600 # seconds (10 minutes)
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "QNAP device has been rebooted"
+      description: "The QNAP device {{ $labels.instance }} has been rebooted within the last 10 minutes."
+      
+  - alert: QNAPPowerSupplyFailed
+    expr: qnap_power_status != 0  # ok(0), fail(-1)
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Power supply failure on QNAP device"
+      description: "A power supply unit (Enclosure ID: {{ $labels.encID }}, Power ID: {{ $labels.powerID }}) on QNAP device {{ $labels.instance }} is reporting a failure."
