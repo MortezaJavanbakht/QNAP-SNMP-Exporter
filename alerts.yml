@@ -116,7 +116,7 @@ groups:
       description: "Free space on volume with filesystem '{{ $labels.volumeFilesystem }}' on device {{ $labels.instance }} is below 5% and will be full soon."
 
   - alert: QNAPVolumeStatusNotReady
-    expr: qnap_volume_status_alt{qnap_volume_status_alt!="Ready"}
+    expr: qnap_volume_status_alt{qnap_volume_status_alt!~"Ready|Reclaiming.*"}
     for: 10m
     labels:
       severity: critical
@@ -141,6 +141,16 @@ groups:
     annotations:
       summary: "Storage Pool Status Not Ready on QNAP {{ $labels.instance }}"
       description: "The status of storage pool with index {{ $labels.poolIndex }} on device {{ $labels.instance }} is not 'Ready'."
+
+  - alert: QNAPRaidSynchronizing
+    expr: qnap_raid_capacity_bytes{raidState=~"Synchronizing"}
+    for: 10m
+    labels:
+      severity: warning
+      channel: storage-internet
+    annotations:
+      summary: "RAID Array Synchronizing on QNAP {{ $labels.instance }}"
+      description: "The RAID array with level '{{ $labels.raidLevel }}' on device {{ $labels.instance }} is in state '{{ $labels.raidState }}'."
 
 
   # --- RAID Alerts ---
